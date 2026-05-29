@@ -22,7 +22,8 @@ class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
     super.initState();
     // Poll every 30 seconds so vendor status updates (confirmed, preparing,
     // delivered, etc.) appear automatically without a manual pull-to-refresh.
-    _autoRefresh = Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
+    _autoRefresh =
+        Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
   }
 
   @override

@@ -21,7 +21,8 @@ class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
   void initState() {
     super.initState();
     // Poll every 30 seconds so new customer orders appear automatically
-    _autoRefresh = Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
+    _autoRefresh =
+        Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
   }
 
   @override
