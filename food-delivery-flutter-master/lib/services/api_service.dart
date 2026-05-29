@@ -3,14 +3,14 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
-  static String get _base {
-    const deployedBaseUrl = String.fromEnvironment('API_BASE_URL');
-    if (deployedBaseUrl.isNotEmpty) return deployedBaseUrl;
+  static const String _deployedUrl =
+      'https://food-delivery-flutter.onrender.com/api';
 
-    if (kIsWeb) return 'http://localhost:3000/api';
-    // ⬇ Change this to your Render/Railway deployed URL once deployed.
-    // e.g. 'https://food-delivery-backend-xxxx.onrender.com/api'
-    return 'http://192.168.109.131:3000/api';
+  static String get _base {
+    const envUrl = String.fromEnvironment('API_BASE_URL');
+    if (envUrl.isNotEmpty) return envUrl;
+    if (kIsWeb) return _deployedUrl;
+    return _deployedUrl; // Render backend (live)
   }
 
   static Uri _uri(String path) => Uri.parse('$_base$path');
