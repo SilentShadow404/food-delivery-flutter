@@ -11,7 +11,7 @@ class EncryptionService {
 
   // 32-byte key (256-bit AES).  In a real app store this in secure storage
   // (e.g. flutter_secure_storage) and never hard-code it.
-  static const String _rawKey = 'FoodDash@SecureK3y#AES256Encrypt!';
+  static const String _rawKey = 'FoodDash@SecureK3y#AES256Encrypt';
   // 16-byte IV — for a real app generate a random IV per encrypt call and
   // store it alongside the ciphertext.
   static const String _rawIv = 'FD_IV_1234567890';

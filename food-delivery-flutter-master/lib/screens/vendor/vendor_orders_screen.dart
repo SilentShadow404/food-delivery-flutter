@@ -1,12 +1,41 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:zomato/constants/app_colors.dart';
 import 'package:zomato/models/order_model.dart';
 import 'package:zomato/providers/auth_provider.dart';
 import 'package:zomato/providers/order_provider.dart';
+import 'package:zomato/services/encryption_service.dart';
 
-class VendorOrdersScreen extends StatelessWidget {
+class VendorOrdersScreen extends StatefulWidget {
   const VendorOrdersScreen({super.key});
+
+  @override
+  State<VendorOrdersScreen> createState() => _VendorOrdersScreenState();
+}
+
+class _VendorOrdersScreenState extends State<VendorOrdersScreen> {
+  Timer? _autoRefresh;
+
+  @override
+  void initState() {
+    super.initState();
+    // Poll every 30 seconds so new customer orders appear automatically
+    _autoRefresh = Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
+  }
+
+  @override
+  void dispose() {
+    _autoRefresh?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    final auth = context.read<AuthProvider>();
+    final vendorId = auth.currentUser?.id;
+    if (vendorId == null) return;
+    await context.read<OrderProvider>().loadVendorOrders(vendorId);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -25,24 +54,38 @@ class VendorOrdersScreen extends StatelessWidget {
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             ),
             Expanded(
-              child: orders.isEmpty
-                  ? Center(
-                      child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                          Icon(Icons.inbox, size: 80, color: Colors.grey[300]),
-                          SizedBox(height: 16),
-                          Text('No orders received yet',
-                              style: TextStyle(
-                                  fontSize: 18,
-                                  color: AppColors.textSecondary)),
-                        ]))
-                  : ListView.builder(
-                      padding: EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: orders.length,
-                      itemBuilder: (ctx, i) =>
-                          _VendorOrderCard(order: orders[i]),
-                    ),
+              child: RefreshIndicator(
+                onRefresh: _refresh,
+                child: orders.isEmpty
+                    ? ListView(
+                        children: [
+                          SizedBox(height: 120),
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.inbox,
+                                  size: 80, color: Colors.grey[300]),
+                              SizedBox(height: 16),
+                              Text('No orders received yet',
+                                  style: TextStyle(
+                                      fontSize: 18,
+                                      color: AppColors.textSecondary)),
+                              SizedBox(height: 8),
+                              Text('Pull down to refresh',
+                                  style: TextStyle(
+                                      fontSize: 13,
+                                      color: AppColors.textSecondary)),
+                            ],
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
+                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        itemCount: orders.length,
+                        itemBuilder: (ctx, i) =>
+                            _VendorOrderCard(order: orders[i]),
+                      ),
+              ),
             ),
           ],
         ),
@@ -68,9 +111,13 @@ class _VendorOrderCard extends StatelessWidget {
                 color: Colors.black12, blurRadius: 4, offset: Offset(0, 1))
           ]),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-          Text(order.id,
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+        Row(children: [
+          Expanded(
+            child: Text(order.id,
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                overflow: TextOverflow.ellipsis),
+          ),
+          SizedBox(width: 8),
           _statusChip(order.status),
         ]),
         SizedBox(height: 8),
@@ -85,10 +132,10 @@ class _VendorOrderCard extends StatelessWidget {
           Icon(Icons.location_on, size: 16, color: AppColors.textSecondary),
           SizedBox(width: 4),
           Expanded(
-              child: Text(order.deliveryAddress,
+              child: Text(crypto.decryptSafe(order.deliveryAddress),
                   style:
                       TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                  maxLines: 1,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis)),
         ]),
         SizedBox(height: 8),

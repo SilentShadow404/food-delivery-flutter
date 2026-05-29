@@ -4,6 +4,7 @@ import 'package:zomato/constants/app_colors.dart';
 import 'package:zomato/models/user_model.dart';
 import 'package:zomato/providers/auth_provider.dart';
 import 'package:zomato/screens/auth/register_screen.dart';
+import 'package:zomato/services/api_service.dart';
 import 'package:zomato/widgets/custom_button.dart';
 import 'package:zomato/widgets/custom_text_field.dart';
 
@@ -49,6 +50,24 @@ class _LoginScreenState extends State<LoginScreen> {
     _emailCtrl.dispose();
     _passCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _showForgotPassword() async {
+    final sent = await showDialog<bool>(
+      context: context,
+      builder: (_) => _ForgotPasswordDialog(
+        initialEmail: _emailCtrl.text.trim(),
+        roleColor: _roleColor,
+      ),
+    );
+    if (sent == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(
+            'If this email is registered, a reset link has been sent. Check your inbox.'),
+        backgroundColor: AppColors.success,
+        duration: Duration(seconds: 5),
+      ));
+    }
   }
 
   Future<void> _login() async {
@@ -126,9 +145,7 @@ class _LoginScreenState extends State<LoginScreen> {
               Align(
                 alignment: Alignment.centerRight,
                 child: TextButton(
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                          content: Text('Password reset link sent to email'))),
+                  onPressed: _showForgotPassword,
                   child: Text('Forgot Password?',
                       style: TextStyle(
                           color: _roleColor, fontWeight: FontWeight.w600)),
@@ -161,41 +178,101 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-              SizedBox(height: 30),
-              // Demo credentials hint
-              Container(
-                padding: EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                    color: _roleColor.withAlpha(20),
-                    borderRadius: BorderRadius.circular(12)),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Demo Credentials:',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold, color: _roleColor)),
-                    SizedBox(height: 6),
-                    Text(_getDemoCredentials(),
-                        style: TextStyle(
-                            fontSize: 13, color: AppColors.textSecondary)),
-                  ],
-                ),
-              ),
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  String _getDemoCredentials() {
-    switch (widget.role) {
-      case UserRole.customer:
-        return 'Email: customer@test.com\nPassword: 123456';
-      case UserRole.vendor:
-        return 'Email: vendor@test.com\nPassword: 123456';
-      case UserRole.admin:
-        return 'Email: admin@test.com\nPassword: 123456';
+// ──────────────────────────────────────────────────────────────────────────────
+// Standalone dialog widget — avoids StatefulBuilder context-lifecycle issues
+// ──────────────────────────────────────────────────────────────────────────────
+class _ForgotPasswordDialog extends StatefulWidget {
+  final String initialEmail;
+  final Color roleColor;
+  const _ForgotPasswordDialog(
+      {required this.initialEmail, required this.roleColor});
+
+  @override
+  State<_ForgotPasswordDialog> createState() => _ForgotPasswordDialogState();
+}
+
+class _ForgotPasswordDialogState extends State<_ForgotPasswordDialog> {
+  late final TextEditingController _emailCtrl;
+  bool _sending = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _emailCtrl = TextEditingController(text: widget.initialEmail);
+  }
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _send() async {
+    final email = _emailCtrl.text.trim();
+    if (email.isEmpty) return;
+    setState(() => _sending = true);
+    try {
+      // Route through the backend which uses the food-delivery-e78ef Firebase
+      // project (where user accounts actually live).  Calling Firebase Auth
+      // directly from Flutter targets zomato-101e9 and always gets
+      // user-not-found, so no email would ever be sent.
+      await ApiService.forgotPassword(email);
+    } catch (_) {
+      // Swallow — never reveal whether the email is registered.
     }
+    if (mounted) Navigator.pop(context, true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text('Reset Password'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'Enter your email address and we\'ll send a reset link if an account exists.',
+            style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+          ),
+          SizedBox(height: 14),
+          TextField(
+            controller: _emailCtrl,
+            keyboardType: TextInputType.emailAddress,
+            autofocus: true,
+            decoration: InputDecoration(
+              hintText: 'Email',
+              prefixIcon: Icon(Icons.email_outlined),
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: _sending ? null : () => Navigator.pop(context, false),
+          child: Text('Cancel'),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(backgroundColor: widget.roleColor),
+          onPressed: _sending ? null : _send,
+          child: _sending
+              ? SizedBox(
+                  width: 18,
+                  height: 18,
+                  child: CircularProgressIndicator(
+                      strokeWidth: 2, color: Colors.white))
+              : Text('Send', style: TextStyle(color: Colors.white)),
+        ),
+      ],
+    );
   }
 }

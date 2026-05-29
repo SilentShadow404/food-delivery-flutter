@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 class ApiService {
@@ -9,8 +8,8 @@ class ApiService {
   static String get _base {
     const envUrl = String.fromEnvironment('API_BASE_URL');
     if (envUrl.isNotEmpty) return envUrl;
-    if (kIsWeb) return _deployedUrl;
-    return _deployedUrl; // Render backend (live)
+    return _deployedUrl; // always use Render.com
+  }
   }
 
   static Uri _uri(String path) => Uri.parse('$_base$path');
@@ -113,11 +112,23 @@ class ApiService {
     return _parse(res);
   }
 
+  static Future<Map<String, dynamic>> forgotPassword(String email) async {
+    final res = await http.post(_uri('/auth/forgot-password'),
+        body: json.encode({'email': email}),
+        headers: {'Content-Type': 'application/json'});
+    return _parse(res);
+  }
+
   static Future<Map<String, dynamic>> updateOrderStatus(
       String orderId, String status) async {
     final res = await http.patch(Uri.parse('$_base/orders/$orderId/status'),
         body: json.encode({'status': status}),
         headers: {'Content-Type': 'application/json'});
+    return _parse(res);
+  }
+
+  static Future<Map<String, dynamic>> getAllOrders() async {
+    final res = await http.get(_uri('/orders/all'));
     return _parse(res);
   }
 

@@ -88,14 +88,26 @@ class OrderProvider extends ChangeNotifier {
     final res = await ApiService.getCustomerOrders(customerId);
     if (res.containsKey('error')) return;
     final list = res['orders'] as List<dynamic>? ?? [];
-    _orders.clear();
+    _orders.removeWhere((o) => o.customerId == customerId);
     for (final it in list) {
       if (it is Map<String, dynamic>) _orders.add(OrderModel.fromMap(it));
     }
     notifyListeners();
   }
 
-  void updateOrderStatus(String orderId, OrderStatus status) {
+  Future<void> loadVendorOrders(String vendorId) async {
+    final res = await ApiService.getVendorOrders(vendorId);
+    if (res.containsKey('error')) return;
+    final list = res['orders'] as List<dynamic>? ?? [];
+    _orders.removeWhere((o) => o.vendorId == vendorId);
+    for (final it in list) {
+      if (it is Map<String, dynamic>) _orders.add(OrderModel.fromMap(it));
+    }
+    notifyListeners();
+  }
+
+  Future<void> updateOrderStatus(String orderId, OrderStatus status) async {
+    // Optimistic local update first — UI responds immediately
     final idx = _orders.indexWhere((o) => o.id == orderId);
     if (idx >= 0) {
       _orders[idx].status = status;
@@ -103,7 +115,6 @@ class OrderProvider extends ChangeNotifier {
         _orders[idx].deliveredAt = DateTime.now();
       }
       log.info('[Orders] Status updated: $orderId → ${status.name}');
-      // Notify customer when their order status changes
       final statusLabel = _statusLabel(status);
       notifications.showOrderNotification(
         title: 'Order Update 📦',
@@ -112,6 +123,9 @@ class OrderProvider extends ChangeNotifier {
       );
       notifyListeners();
     }
+    // Persist to backend — survives app restarts
+    final statusStr = status.name; // e.g. 'confirmed', 'preparing', 'delivered'
+    await ApiService.updateOrderStatus(orderId, statusStr);
   }
 
   static String _statusLabel(OrderStatus s) {
@@ -133,8 +147,8 @@ class OrderProvider extends ChangeNotifier {
     }
   }
 
-  void cancelOrder(String orderId) {
-    updateOrderStatus(orderId, OrderStatus.cancelled);
+  Future<void> cancelOrder(String orderId) {
+    return updateOrderStatus(orderId, OrderStatus.cancelled);
   }
 
   // Stats for admin/vendor dashboards

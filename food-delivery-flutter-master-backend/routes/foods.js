@@ -7,12 +7,13 @@ router.get('/', async (req, res) => {
   try {
     if (!admin.apps.length) return res.status(500).json({ error: 'Firebase not configured' });
     const db = admin.firestore();
-    let query = db.collection('food_items').where('isAvailable', '==', true);
-    if (req.query.category) query = query.where('category', '==', req.query.category);
-    if (req.query.vendorId) query = query.where('vendorId', '==', req.query.vendorId);
-
-    const snap = await query.get();
-    const foods = snap.docs.map((d) => d.data());
+    // Use single equality filter only — chaining multiple where clauses on
+    // different fields requires composite Firestore indexes that may not exist.
+    // Filter category and vendorId in-memory instead.
+    const snap = await db.collection('food_items').where('isAvailable', '==', true).get();
+    let foods = snap.docs.map((d) => d.data());
+    if (req.query.category) foods = foods.filter((f) => f.category === req.query.category);
+    if (req.query.vendorId) foods = foods.filter((f) => f.vendorId === req.query.vendorId);
     return res.json({ foods });
   } catch (e) {
     console.error(e);

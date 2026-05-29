@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:zomato/constants/app_colors.dart';
@@ -6,8 +7,36 @@ import 'package:zomato/providers/auth_provider.dart';
 import 'package:zomato/providers/order_provider.dart';
 import 'package:zomato/screens/customer/order_detail_screen.dart';
 
-class OrderHistoryScreen extends StatelessWidget {
+class OrderHistoryScreen extends StatefulWidget {
   const OrderHistoryScreen({super.key});
+
+  @override
+  State<OrderHistoryScreen> createState() => _OrderHistoryScreenState();
+}
+
+class _OrderHistoryScreenState extends State<OrderHistoryScreen> {
+  Timer? _autoRefresh;
+
+  @override
+  void initState() {
+    super.initState();
+    // Poll every 30 seconds so vendor status updates (confirmed, preparing,
+    // delivered, etc.) appear automatically without a manual pull-to-refresh.
+    _autoRefresh = Timer.periodic(const Duration(seconds: 30), (_) => _refresh());
+  }
+
+  @override
+  void dispose() {
+    _autoRefresh?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    final auth = context.read<AuthProvider>();
+    final customerId = auth.currentUser?.id;
+    if (customerId == null) return;
+    await context.read<OrderProvider>().loadCustomerOrders(customerId);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,27 +55,35 @@ class OrderHistoryScreen extends StatelessWidget {
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             ),
             Expanded(
-              child: orders.isEmpty
-                  ? Center(
-                      child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                          Icon(Icons.receipt_long_outlined,
-                              size: 80, color: Colors.grey[300]),
-                          SizedBox(height: 16),
-                          Text('No orders yet',
-                              style: TextStyle(
-                                  fontSize: 18,
-                                  color: AppColors.textSecondary)),
-                          SizedBox(height: 8),
-                          Text('Your order history will appear here',
-                              style: TextStyle(color: AppColors.textHint)),
-                        ]))
-                  : ListView.builder(
-                      padding: EdgeInsets.symmetric(horizontal: 20),
-                      itemCount: orders.length,
-                      itemBuilder: (ctx, i) => _OrderCard(order: orders[i]),
-                    ),
+              child: RefreshIndicator(
+                onRefresh: _refresh,
+                child: orders.isEmpty
+                    ? ListView(
+                        children: [
+                          SizedBox(height: 120),
+                          Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(Icons.receipt_long_outlined,
+                                  size: 80, color: Colors.grey[300]),
+                              SizedBox(height: 16),
+                              Text('No orders yet',
+                                  style: TextStyle(
+                                      fontSize: 18,
+                                      color: AppColors.textSecondary)),
+                              SizedBox(height: 8),
+                              Text('Pull down to refresh',
+                                  style: TextStyle(color: AppColors.textHint)),
+                            ],
+                          ),
+                        ],
+                      )
+                    : ListView.builder(
+                        padding: EdgeInsets.symmetric(horizontal: 20),
+                        itemCount: orders.length,
+                        itemBuilder: (ctx, i) => _OrderCard(order: orders[i]),
+                      ),
+              ),
             ),
           ],
         ),
@@ -75,9 +112,13 @@ class _OrderCard extends StatelessWidget {
                   color: Colors.black12, blurRadius: 6, offset: Offset(0, 2))
             ]),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Text(order.id,
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+          Row(children: [
+            Expanded(
+              child: Text(order.id,
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  overflow: TextOverflow.ellipsis),
+            ),
+            SizedBox(width: 8),
             _StatusChip(status: order.status),
           ]),
           SizedBox(height: 8),

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:zomato/constants/app_colors.dart';
+import 'package:zomato/providers/auth_provider.dart';
 import 'package:zomato/providers/cart_provider.dart';
+import 'package:zomato/providers/order_provider.dart';
 import 'package:zomato/screens/customer/home_page.dart';
 import 'package:zomato/screens/customer/search_page.dart';
 import 'package:zomato/screens/customer/cart_screen.dart';
@@ -17,6 +19,17 @@ class CustomerMainScreen extends StatefulWidget {
 
 class _CustomerMainScreenState extends State<CustomerMainScreen> {
   int _currentIndex = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = context.read<AuthProvider>().currentUser;
+      if (user != null) {
+        context.read<OrderProvider>().loadCustomerOrders(user.id);
+      }
+    });
+  }
 
   final _pages = const [
     CustomerHomePage(),

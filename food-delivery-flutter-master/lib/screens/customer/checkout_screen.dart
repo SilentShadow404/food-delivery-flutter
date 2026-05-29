@@ -20,6 +20,7 @@ class CheckoutScreen extends StatefulWidget {
 class _CheckoutScreenState extends State<CheckoutScreen> {
   final _addressCtrl = TextEditingController();
   String _paymentMethod = 'Cash on Delivery';
+  bool _isPlacingOrder = false;
   final _payments = [
     'Cash on Delivery',
     'Credit Card',
@@ -174,54 +175,81 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           CustomButton(
             text: 'Place Order',
             icon: Icons.check_circle,
-            onPressed: () {
+            isLoading: _isPlacingOrder,
+            onPressed: () async {
+              if (_isPlacingOrder) return;
               if (_addressCtrl.text.trim().isEmpty) {
                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     content: Text('Please enter delivery address'),
                     backgroundColor: AppColors.error));
                 return;
               }
-              final orders = context.read<OrderProvider>();
+              setState(() => _isPlacingOrder = true);
+              try {
+                final orders = context.read<OrderProvider>();
+                final auth = context.read<AuthProvider>();
+                final cart = context.read<CartProvider>();
 
-              // Encrypt the delivery address before storing / transmitting
-              final plainAddress = _addressCtrl.text.trim();
-              final encryptedAddress = crypto.encrypt(plainAddress);
-              log.info('[Checkout] Address encrypted for order storage');
+                final plainAddress = _addressCtrl.text.trim();
+                final encryptedAddress = crypto.encrypt(plainAddress);
+                log.info('[Checkout] Address encrypted for order storage');
 
-              // Group items by vendor
-              final vendorGroups = <String, List<dynamic>>{};
-              for (final item in cart.items) {
-                vendorGroups
-                    .putIfAbsent(item.food.vendorId, () => [])
-                    .add(item);
+                // Group items by vendor
+                final vendorGroups = <String, List<dynamic>>{};
+                for (final item in cart.items) {
+                  vendorGroups
+                      .putIfAbsent(item.food.vendorId, () => [])
+                      .add(item);
+                }
+
+                bool anyFailed = false;
+                // Create one order per vendor and await each
+                for (final entry in vendorGroups.entries) {
+                  final vendorItems = entry.value;
+                  final sub = vendorItems.fold(
+                      0.0, (double sum, item) => sum + item.totalPrice);
+                  final result = await orders.placeOrder(
+                    customerId: auth.currentUser!.id,
+                    customerName: auth.currentUser!.name,
+                    customerPhone: auth.currentUser!.phone,
+                    vendorId: entry.key,
+                    vendorName: vendorItems.first.food.vendorName,
+                    items: List.from(vendorItems),
+                    subtotal: sub,
+                    tax: sub * 0.05,
+                    deliveryFee: 50,
+                    total: sub + sub * 0.05 + 50,
+                    deliveryAddress: encryptedAddress,
+                    paymentMethod: _paymentMethod,
+                  );
+                  if (result == null) anyFailed = true;
+                }
+
+                if (!mounted) return;
+
+                if (anyFailed) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text(
+                          'Failed to place order. Check your connection and try again.'),
+                      backgroundColor: AppColors.error));
+                } else {
+                  cart.clear();
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Order placed successfully! 🎉'),
+                      backgroundColor: AppColors.success));
+                  // Show interstitial ad then navigate back
+                  _showInterstitialAndNavigate();
+                }
+              } catch (e) {
+                log.warning('[Checkout] placeOrder error: $e');
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text('Error placing order: $e'),
+                      backgroundColor: AppColors.error));
+                }
+              } finally {
+                if (mounted) setState(() => _isPlacingOrder = false);
               }
-              // Create one order per vendor
-              for (final entry in vendorGroups.entries) {
-                final vendorItems = entry.value;
-                final sub = vendorItems.fold(
-                    0.0, (double sum, item) => sum + item.totalPrice);
-                orders.placeOrder(
-                  customerId: auth.currentUser!.id,
-                  customerName: auth.currentUser!.name,
-                  customerPhone: auth.currentUser!.phone,
-                  vendorId: entry.key,
-                  vendorName: vendorItems.first.food.vendorName,
-                  items: List.from(vendorItems),
-                  subtotal: sub,
-                  tax: sub * 0.05,
-                  deliveryFee: 50,
-                  total: sub + sub * 0.05 + 50,
-                  // Store encrypted address; decrypt when displaying
-                  deliveryAddress: encryptedAddress,
-                  paymentMethod: _paymentMethod,
-                );
-              }
-              cart.clear();
-              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                  content: Text('Order placed successfully! 🎉'),
-                  backgroundColor: AppColors.success));
-              // Show interstitial ad then navigate back
-              _showInterstitialAndNavigate();
             },
           ),
         ]),

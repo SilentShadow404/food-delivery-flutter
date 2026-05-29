@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:zomato/constants/app_colors.dart';
 import 'package:zomato/providers/auth_provider.dart';
+import 'package:zomato/providers/order_provider.dart';
 import 'package:zomato/screens/vendor/vendor_dashboard.dart';
 import 'package:zomato/screens/vendor/menu_management_screen.dart';
 import 'package:zomato/screens/vendor/vendor_orders_screen.dart';
@@ -32,6 +33,7 @@ class _VendorMainScreenState extends State<VendorMainScreen> {
       final vendorId = context.read<AuthProvider>().currentUser?.id ?? '';
       if (vendorId.isNotEmpty) {
         backgroundService.registerVendorOrderCheck(vendorId);
+        context.read<OrderProvider>().loadVendorOrders(vendorId);
       }
     });
   }
