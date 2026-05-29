@@ -10,7 +10,6 @@ class ApiService {
     if (envUrl.isNotEmpty) return envUrl;
     return _deployedUrl; // always use Render.com
   }
-  }
 
   static Uri _uri(String path) => Uri.parse('$_base$path');
 
