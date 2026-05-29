@@ -1,0 +1,20 @@
+# VS Code tooling (not part of the project)
+.github/
+
+# Flutter / Dart
+food-delivery-flutter-master/build/
+food-delivery-flutter-master/.dart_tool/
+food-delivery-flutter-master/.idea/
+food-delivery-flutter-master/*.iml
+food-delivery-flutter-master/.flutter-plugins
+food-delivery-flutter-master/.flutter-plugins-dependencies
+food-delivery-flutter-master/.metadata
+
+# Node.js backend
+food-delivery-flutter-master-backend/node_modules/
+food-delivery-flutter-master-backend/.env
+
+# Firebase service account key (sensitive credential)
+*.json
+!food-delivery-flutter-master-backend/package.json
+!food-delivery-flutter-master-backend/package-lock.json
