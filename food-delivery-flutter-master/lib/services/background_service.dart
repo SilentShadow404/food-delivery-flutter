@@ -77,7 +77,7 @@ class BackgroundService {
       constraints: Constraints(
         networkType: NetworkType.connected,
       ),
-      existingWorkPolicy: ExistingWorkPolicy.replace,
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.replace,
     );
     log.info('[WorkManager] Registered order-check task for vendor $vendorId');
   }
